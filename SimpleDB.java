@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.lang.StringBuilder;
 import java.io.*;
+import java.util.Stack;
 
 // RadixTree?
 class RadixTree {
@@ -40,7 +41,7 @@ class RadixTree {
     return null; // not found
   }
 
-  public int insert(Node n, String key, String val) {
+  public int insert(Node n, String key, Object val) {
     // for each edge
     for(int i = 0; i < n.edges.size(); i++) {
       Edge e = n.edges.get(i);
@@ -154,7 +155,7 @@ class RadixTree {
 
 class Node {
   // inner nodes have val = null
-  public String val;
+  public Object val;
   public ArrayList<Edge> edges;
   public Edge parentEdge;
 
@@ -164,8 +165,7 @@ class Node {
     this.parentEdge = null;
   }
   
-
-  public Node(String val, ArrayList<Edge> edges, Edge parentEdge) {
+  public Node(Object val, ArrayList<Edge> edges, Edge parentEdge) {
     this.val = val;
     if(edges == null) {
       this.edges = new ArrayList<Edge>();
@@ -203,6 +203,9 @@ class Edge {
 public class SimpleDB {
   public static boolean DEBUG = true;
   public static RadixTree r;
+  public static RadixTree helperR;
+
+  public static Stack commands;
 
   public static void set(String key, String val) {
     // ensure keys are $ terminated?
@@ -214,27 +217,52 @@ public class SimpleDB {
       err = r.insert(r.root, key, val);
     }
     if(DEBUG) { System.out.println("errcode: " + err); }
+
+    Node n = helperR.get(helperR.root, val + "$");
+    if(n != null) {
+      int count = Integer.parseInt(n.val.toString());
+      n.val = new Integer(count + 1);
+    } else {
+      helperR.insert(helperR.root, val + "$", new Integer(1));
+    }
+
   }
 
-  public static String get(String key, String val) {
-    return r.get(r.root, key + "$");
+  public static String get(String key) {
+    return (String) r.get(r.root, key + "$").val;
   }
 
+  public static void unset(String key) {
+    String val = r.get(r.root, key + "$").val.toString();
 
-  public static void unset(String key, String val) {
     int err;
     err = r.delete(r.root, key + "$");
     if(DEBUG) { System.out.println("errcode: " + err); }
+
+    Node n = helperR.get(helperR.root, val + "$");
+    if(n != null) {
+      int count = Integer.parseInt(n.val.toString());
+      if(count > 1) {
+        n.val = count - 1;
+      } else {
+        helperR.delete(helperR.root, val + "$");
+      }
+    } 
   }
 
-
-  public static void numEqualTo(String key, String val) {
-    // need precomputed radix tree of keys
+  public static int numEqualTo(String val) {
+    // need precomputed radix tree of keys to make it O(logn)
+    Node n = helperR.get(helperR.root, val + "$");
+    if(n == null) {
+      return 0;
+    } else {
+      return Integer.parseInt(n.val.toString());
+    }
   }
-
 
   public static void main(String[] args) {
     r = new RadixTree();
+    helperR = new RadixTree();
     set("key1", "val1");
     set("key2", "val2");
 
@@ -243,11 +271,14 @@ public class SimpleDB {
 
     System.out.println("root:\n" + r);
 
-    delete("key1");
+    unset("key1");
+
+    set("key3", "val2");
 
     System.out.println("root:\n" + r);
+    System.out.println("helperR:\n" + helperR);
 
-
+    System.out.println("#val2: " + numEqualTo("val2"));
 
     //System.out.println(r.insert(r.root, "key1$", "val1"));
     //System.out.println(r.insert(r.root, "key2$", "val2"));
