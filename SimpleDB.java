@@ -202,29 +202,68 @@ class Edge {
 
 public class SimpleDB {
   public static boolean DEBUG = true;
+  public static RadixTree r;
 
   public static void set(String key, String val) {
-
-
+    // ensure keys are $ terminated?
+    // maybe should automatically append
+    int err;
+    if(key.charAt(key.length() - 1) != '$') {
+      err = r.insert(r.root, key + "$", val);
+    } else {
+      err = r.insert(r.root, key, val);
+    }
+    if(DEBUG) { System.out.println("errcode: " + err); }
   }
 
+  public static String get(String key, String val) {
+    return r.get(r.root, key + "$");
+  }
+
+
+  public static void unset(String key, String val) {
+    int err;
+    err = r.delete(r.root, key + "$");
+    if(DEBUG) { System.out.println("errcode: " + err); }
+  }
+
+
+  public static void numEqualTo(String key, String val) {
+    // need precomputed radix tree of keys
+  }
+
+
   public static void main(String[] args) {
-    RadixTree r = new RadixTree();
-    System.out.println(r.insert(r.root, "key1$", "val1"));
-    System.out.println(r.insert(r.root, "key2$", "val2"));
-    //System.out.println("after: " + r.root.edges.get(0).n);
+    r = new RadixTree();
+    set("key1", "val1");
+    set("key2", "val2");
 
-    System.out.println("search 1: " + r.get(r.root, "key1$"));
-    System.out.println("search 2: " + r.get(r.root, "key2$"));
-
-    System.out.println("e1: " + r.root.edges.get(0));
-    System.out.println("e1,1: " + r.root.edges.get(0).n.edges.get(0));
-    System.out.println("e1,2: " + r.root.edges.get(0).n.edges.get(1));
+    get("key1");
+    get("key2");
 
     System.out.println("root:\n" + r);
 
-    System.out.println("delete: " + r.delete(r.root, "key1$"));
+    delete("key1");
+
     System.out.println("root:\n" + r);
+
+
+
+    //System.out.println(r.insert(r.root, "key1$", "val1"));
+    //System.out.println(r.insert(r.root, "key2$", "val2"));
+    ////System.out.println("after: " + r.root.edges.get(0).n);
+
+    //System.out.println("search 1: " + r.get(r.root, "key1$"));
+    //System.out.println("search 2: " + r.get(r.root, "key2$"));
+
+    //System.out.println("e1: " + r.root.edges.get(0));
+    //System.out.println("e1,1: " + r.root.edges.get(0).n.edges.get(0));
+    //System.out.println("e1,2: " + r.root.edges.get(0).n.edges.get(1));
+
+    //System.out.println("root:\n" + r);
+
+    //System.out.println("delete: " + r.delete(r.root, "key1$"));
+    //System.out.println("root:\n" + r);
     //BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     //String line = br.readLine();
     //int N = Integer.parseInt(line);
