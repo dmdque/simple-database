@@ -16,23 +16,21 @@ class RadixTree {
     root = new Node();
   }
 
-  // TODO: rename s to key to match insert
-  // TODO: rename function to get
-  public Node search(Node n, String s) {
+  public Node get(Node n, String key) {
     // for each edge
     for(int i = 0; i < n.edges.size(); i++) {
       Edge e = n.edges.get(i);
-      if(e.s.equals(s)) {
+      if(e.s.equals(key)) {
         if(DEBUG) { System.out.println("found"); }
         return e.n; // key found
       } else {
-        for(int j = Math.min(e.s.length(), s.length()); j >= 0; j--) {
-          if(DEBUG) { System.out.println("search: " + e.s.substring(0, j) + ":" + (s.substring(0, j))); }
-          if(e.s.substring(0, j).equals(s.substring(0, j))) {
+        for(int j = Math.min(e.s.length(), key.length()); j >= 0; j--) {
+          if(DEBUG) { System.out.println("search: " + e.s.substring(0, j) + ":" + (key.substring(0, j))); }
+          if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(e.s.charAt(e.s.length() - 1) != '$') {
-              if(DEBUG) { System.out.println("recursive suffix" + s.substring(j + 1, s.length())); }
+              if(DEBUG) { System.out.println("recursive suffix" + key.substring(j + 1, key.length())); }
 
-              return search(e.n, s.substring(j, s.length()));
+              return get(e.n, key.substring(j, key.length()));
             }
           }
         }
@@ -62,17 +60,19 @@ class RadixTree {
               // but maybe we can specialize a bit more, and split there
 
               // split
-              Node nA = new Node(e.n.val, null);
+              Node nA = new Node(e.n.val, null, null);
               e.n.setVal(null);
               if(DEBUG) { System.out.println(n.val); }
               String prefix = e.s.substring(0, j);
               String suffix = e.s.substring(j, e.s.length());
               e.s = prefix;
               Edge eA = new Edge(suffix, nA);
+              nA.parentEdge = eA;
               e.n.edges.add(eA);
 
-              Node nB = new Node(val, null);
+              Node nB = new Node(val, null, null);
               Edge eB = new Edge(key.substring(j, key.length()), nB);
+              nB.parentEdge = eB;
               if(DEBUG) { System.out.println("eB: " + eB); }
               e.n.edges.add(eB);
               if(DEBUG) { System.out.println("split: " + e.n); }
@@ -84,13 +84,50 @@ class RadixTree {
       }
     }
     // key not found
-    Node nTemp = new Node(val, null);
+    Node nTemp = new Node(val, null, null);
     Edge eTemp = new Edge(key, nTemp);
+    nTemp.parentEdge = eTemp;
     n.edges.add(eTemp);
     return 3;
     // search as far as possible
     // split into two
     // insert node
+  }
+
+  public int delete(Node n, String key) {
+    // for each edge
+    for(int i = 0; i < n.edges.size(); i++) {
+      Edge e = n.edges.get(i);
+      if(e.s.equals(key)) {
+        // key found
+        // delete it
+        n.edges.remove(i);
+
+        if(n.edges.size() == 1) {
+          // merge
+          e = n.edges.get(0);
+          n.parentEdge.s += e.s; // append edge.s to parent edge.s
+          
+          n.val = e.n.val;
+
+          n.edges.remove(0);
+        }
+        return 1;
+      } else {
+        for(int j = Math.min(e.s.length(), key.length()); j >= 0; j--) {
+          if(e.s.substring(0, j).equals(key.substring(0, j))) {
+            if(e.s.charAt(e.s.length() - 1) != '$') {
+              return delete(e.n, key.substring(j, key.length()));
+            } else {
+              // not found
+              return -1;
+            }
+          }
+        }
+      }
+    }
+    // key not found
+    return -2;
   }
 
   public String toString() {
@@ -119,22 +156,23 @@ class Node {
   // inner nodes have val = null
   public String val;
   public ArrayList<Edge> edges;
-  //public Node p;
+  public Edge parentEdge;
 
   public Node() {
     this.val = null;
     this.edges = new ArrayList<Edge>();
-    //this.p = null;
+    this.parentEdge = null;
   }
+  
 
-  public Node(String val, ArrayList<Edge> edges) {
+  public Node(String val, ArrayList<Edge> edges, Edge parentEdge) {
     this.val = val;
     if(edges == null) {
       this.edges = new ArrayList<Edge>();
     } else {
       this.edges = edges;
     }
-    //this.p = p;
+    this.parentEdge = parentEdge;
   }
 
   public void setVal(String val) {
@@ -176,8 +214,8 @@ public class SimpleDB {
     System.out.println(r.insert(r.root, "key2$", "val2"));
     //System.out.println("after: " + r.root.edges.get(0).n);
 
-    System.out.println("search 1: " + r.search(r.root, "key1$"));
-    System.out.println("search 2: " + r.search(r.root, "key2$"));
+    System.out.println("search 1: " + r.get(r.root, "key1$"));
+    System.out.println("search 2: " + r.get(r.root, "key2$"));
 
     System.out.println("e1: " + r.root.edges.get(0));
     System.out.println("e1,1: " + r.root.edges.get(0).n.edges.get(0));
@@ -185,7 +223,8 @@ public class SimpleDB {
 
     System.out.println("root:\n" + r);
 
-
+    System.out.println("delete: " + r.delete(r.root, "key1$"));
+    System.out.println("root:\n" + r);
     //BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     //String line = br.readLine();
     //int N = Integer.parseInt(line);
