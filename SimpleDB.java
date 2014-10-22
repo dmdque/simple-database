@@ -1,10 +1,10 @@
-import java.util.Scanner;
+import java.io.*;
 import java.lang.Math;
+import java.lang.StringBuilder;
+import java.util.Scanner;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.lang.StringBuilder;
-import java.io.*;
 import java.util.ArrayDeque;
 
 /*
@@ -20,6 +20,11 @@ import java.util.ArrayDeque;
 */
 
 // RadixTree is more interesting to implement
+
+// This implementation was using '$' to terminate strings (to make them prefix-
+// free). But since that limits the possibilities for keys and values, and it's
+// given that keys nor values will contain spaces, the terminator was changed to
+// ' '.
 class RadixTree {
   public boolean DEBUG = false;
   public Node root;
@@ -38,7 +43,7 @@ class RadixTree {
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
-            if(e.s.charAt(e.s.length() - 1) != '$') {
+            if(e.s.charAt(e.s.length() - 1) != ' ') {
               return get(e.n, key.substring(j, key.length()));
             }
           }
@@ -62,7 +67,7 @@ class RadixTree {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             // we potentially want to split key here
-            if(e.s.charAt(e.s.length() - 1) != '$') {
+            if(e.s.charAt(e.s.length() - 1) != ' ') {
               // but maybe we can specialize a bit more, and split later
               return insert(e.n, key.substring(j, key.length()), val);
             } else {
@@ -117,7 +122,7 @@ class RadixTree {
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
-            if(e.s.charAt(e.s.length() - 1) != '$') {
+            if(e.s.charAt(e.s.length() - 1) != ' ') {
               return delete(e.n, key.substring(j, key.length()));
             } else {
               // this block should never actually run
@@ -205,11 +210,11 @@ public class SimpleDB {
   public static RadixTree r;
   public static RadixTree numEqualRT;
   public static ArrayDeque<String> commandStack;
-  public static int transactionCount = 0;
+  public static int blockCount = 0; // keeps track of #open transaction blocks
 
   public static void set(String key, String val) {
-    Node rNode = r.get(r.root, key + "$");
-    if(transactionCount > 0) {
+    Node rNode = r.get(r.root, key + " ");
+    if(blockCount > 0) {
       if(rNode != null) {
         commandStack.push("SET " + key + " " + rNode.val.toString());
       } else {
@@ -220,37 +225,37 @@ public class SimpleDB {
     // if key already existed, must update numEqualRT as if it were unset
     if(rNode != null) {
       String oldVal = rNode.val.toString();
-      Node n = numEqualRT.get(numEqualRT.root, oldVal + "$");
+      Node n = numEqualRT.get(numEqualRT.root, oldVal + " ");
       int count = Integer.parseInt(n.val.toString());
       if(count > 1) {
         n.val = count - 1;
       } else {
-        numEqualRT.delete(numEqualRT.root, oldVal + "$");
+        numEqualRT.delete(numEqualRT.root, oldVal + " ");
       }
     } 
 
-    // ensure keys are $ terminated?
+    // ensure keys are   terminated?
     // maybe should automatically append
     int err;
-    if(key.charAt(key.length() - 1) != '$') {
-      err = r.insert(r.root, key + "$", val);
+    if(key.charAt(key.length() - 1) != ' ') {
+      err = r.insert(r.root, key + " ", val);
     } else {
       err = r.insert(r.root, key, val);
     }
 
-    Node n = numEqualRT.get(numEqualRT.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + " ");
     if(n != null) {
       int count = Integer.parseInt(n.val.toString());
       n.val = new Integer(count + 1);
     } else {
-      numEqualRT.insert(numEqualRT.root, val + "$", new Integer(1));
+      numEqualRT.insert(numEqualRT.root, val + " ", new Integer(1));
     }
 
   }
 
   public static String get(String key) {
     
-    Node n = r.get(r.root, key + "$");
+    Node n = r.get(r.root, key + " ");
     if(n != null) {
       return n.val.toString();
     } else {
@@ -260,26 +265,26 @@ public class SimpleDB {
 
   public static void unset(String key) {
     // transaction-related code
-    Node rNode = r.get(r.root, key + "$");
-    if(transactionCount > 0) {
+    Node rNode = r.get(r.root, key + " ");
+    if(blockCount > 0) {
       if(rNode != null) {
         commandStack.push("SET " + key + " " + rNode.val.toString());
       }
       // if there was nothing there before, nothing needs to be done
     }
 
-    String val = r.get(r.root, key + "$").val.toString();
+    String val = r.get(r.root, key + " ").val.toString();
 
     int err;
-    err = r.delete(r.root, key + "$");
+    err = r.delete(r.root, key + " ");
 
-    Node n = numEqualRT.get(numEqualRT.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + " ");
     if(n != null) {
       int count = Integer.parseInt(n.val.toString());
       if(count > 1) {
         n.val = count - 1;
       } else {
-        numEqualRT.delete(numEqualRT.root, val + "$");
+        numEqualRT.delete(numEqualRT.root, val + " ");
       }
     } 
   }
@@ -287,7 +292,7 @@ public class SimpleDB {
   public static int numEqualTo(String val) {
     // need precomputed radix tree of keys to make it O(logn)
     // need to check for unset AND set overwrite
-    Node n = numEqualRT.get(numEqualRT.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + " ");
     if(n == null) {
       return 0;
     } else {
@@ -297,6 +302,7 @@ public class SimpleDB {
 
   /*
    * Plan for Transactions
+   * ---------------------
    * BEGIN:
      * Two options:
      * a)
@@ -322,17 +328,23 @@ public class SimpleDB {
     * COMMIT:
       * destroy begin stack
   */
+
+  // adds "END" command at the beginning of each block, so that rollback only
+  // rolls back by one block
   public static void begin() {
-    transactionCount++;
+    blockCount++;
     commandStack.push("END");
   }
 
+  // processes rollback commands
+  // processes set, unset, and "end" (different from commandline END)
   public static void rollback() {
-    if(transactionCount > 0) {
-      // must temporarily disable transactionCount to prevent transactions from
+  // increments blockCount
+    if(blockCount > 0) {
+      // must temporarily disable blockCount to prevent transactions from
       // building up during rollback
-      int tempTransactionCount = transactionCount;
-      transactionCount = 0;
+      int tempTransactionCount = blockCount;
+      blockCount = 0;
 
       while(commandStack.size() > 0) {
         String line = commandStack.pop();
@@ -344,19 +356,22 @@ public class SimpleDB {
         } else if (tokens[0].equalsIgnoreCase("END")) {
           break;
         } else {
+          // just in case
+          if(DEBUG) { System.out.println("illegal rollback command"); }
           break;
         }
       }
 
-      transactionCount = tempTransactionCount - 1;
+      blockCount = tempTransactionCount - 1;
     } else {
       System.out.println("NO TRANSACTION");
     }
   }
 
+  // clears blockCount and commandStack
   public static void commit() {
-    if(transactionCount > 0) {
-      transactionCount = 0;
+    if(blockCount > 0) {
+      blockCount = 0;
       commandStack.clear();
     } else {
       System.out.println("NO TRANSACTION");
@@ -392,6 +407,8 @@ public class SimpleDB {
         commit();
       } else if (tokens[0].equalsIgnoreCase("PRINT")) {
         System.out.println("root: " + r);
+      } else if (tokens[0].equalsIgnoreCase("END")) {
+        break;
       } else {
         System.out.println("command \"" + tokens[0] + "\" not recognized");
       }
