@@ -53,7 +53,7 @@ class RadixTree {
       if(e.s.equals(key)) {
         // key found. can't insert new key. should modify existing key
         e.n.val = val;
-        return 1;
+        return 0;
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
@@ -78,7 +78,7 @@ class RadixTree {
               Edge eB = new Edge(key.substring(j, key.length()), nB);
               nB.parentEdge = eB;
               e.n.edges.add(eB);
-              return 2;
+              return 0;
             }
           }
         }
@@ -89,7 +89,7 @@ class RadixTree {
     Edge eTemp = new Edge(key, nTemp);
     nTemp.parentEdge = eTemp;
     n.edges.add(eTemp);
-    return 3;
+    return 0;
   }
 
   public int delete(Node n, String key) {
@@ -108,7 +108,7 @@ class RadixTree {
             n.edges.remove(0);
           }
         }
-        return 1;
+        return 0;
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
@@ -118,14 +118,14 @@ class RadixTree {
               // this block should never actually run
               if(DEBUG) { System.out.println(e.s); }
               if(DEBUG) { System.out.println(key); }
-              return -1;
+              return 1;
             }
           }
         }
       }
     }
     // key not found
-    return -2;
+    return 2;
   }
 
   public String toString() {
