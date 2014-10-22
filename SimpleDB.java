@@ -7,10 +7,20 @@ import java.lang.StringBuilder;
 import java.io.*;
 import java.util.ArrayDeque;
 
-// RadixTree?
+/*
+ * RadixTree or BinarySearchTree?
+ * Radix:
+   * radix will have better run time
+     * O(k), where k is length of key
+     * independent of n, which is nice
+   * trickier to implement
+ * BST:
+   * bst is O(logn)
+   * good enough for specs of this problem
+*/
+
 class RadixTree {
   public boolean DEBUG = false;
-
   public Node root;
 
   public RadixTree() {
@@ -22,14 +32,11 @@ class RadixTree {
     for(int i = 0; i < n.edges.size(); i++) {
       Edge e = n.edges.get(i);
       if(e.s.equals(key)) {
-        if(DEBUG) { System.out.println("found"); }
         return e.n; // key found
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
-          if(DEBUG) { System.out.println("search: " + e.s.substring(0, j) + ":" + (key.substring(0, j))); }
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(e.s.charAt(e.s.length() - 1) != '$') {
-              if(DEBUG) { System.out.println("recursive suffix" + key.substring(j + 1, key.length())); }
 
               return get(e.n, key.substring(j, key.length()));
             }
@@ -37,7 +44,6 @@ class RadixTree {
         }
       }
     }
-    if(DEBUG) { System.out.println("not found, edges but not matching"); }
     return null; // not found
   }
 
@@ -53,7 +59,6 @@ class RadixTree {
         return 1;
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
-          if(DEBUG) { System.out.println("insert: " + e.s.substring(0, j) + ":" + (key.substring(0, j))); }
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(true) { System.out.println("e.s: " + e.s); }
             if(e.s.charAt(e.s.length() - 1) != '$') {
@@ -66,7 +71,6 @@ class RadixTree {
               // split
               Node nA = new Node(e.n.val, null, null);
               e.n.setVal(null);
-              if(DEBUG) { System.out.println(n.val); }
               String prefix = e.s.substring(0, j);
               String suffix = e.s.substring(j, e.s.length());
               e.s = prefix;
@@ -77,10 +81,7 @@ class RadixTree {
               Node nB = new Node(val, null, null);
               Edge eB = new Edge(key.substring(j, key.length()), nB);
               nB.parentEdge = eB;
-              if(DEBUG) { System.out.println("eB: " + eB); }
               e.n.edges.add(eB);
-              if(DEBUG) { System.out.println("split: " + e.n); }
-
               return 2;
             }
           }
@@ -144,6 +145,7 @@ class RadixTree {
     return toString(n, s);
   }
 
+  // simple/primitive text output for debugging purposes
   public String toString(Node n, String s) {
     if(n.edges.size() == 0) {
       return n.toString();
@@ -245,7 +247,6 @@ public class SimpleDB {
     } else {
       err = r.insert(r.root, key, val);
     }
-    if(DEBUG) { System.out.println("errcode: " + err); }
 
     Node n = helperR.get(helperR.root, val + "$");
     if(n != null) {
@@ -281,7 +282,6 @@ public class SimpleDB {
 
     int err;
     err = r.delete(r.root, key + "$");
-    if(DEBUG) { System.out.println("errcode: " + err); }
 
     Node n = helperR.get(helperR.root, val + "$");
     if(n != null) {
@@ -316,12 +316,10 @@ public class SimpleDB {
   public static void begin() {
     transactionCount++;
     commandStack.push("END");
-    if(DEBUG) { System.out.println(transactionCount); }
   }
 
   public static void rollback() {
     if(transactionCount > 0) {
-      if(DEBUG) { System.out.println("command stack size " + commandStack.size()); }
       // must temporarily disable transactionCount
       int tempTransactionCount = transactionCount;
       transactionCount = 0;
@@ -329,7 +327,6 @@ public class SimpleDB {
       while(commandStack.size() > 0) {
         String line = commandStack.pop();
         String[] tokens = line.split(" ");
-        if(DEBUG) { System.out.println("command: " + line); }
         if(tokens[0].equalsIgnoreCase("SET")) {
           set(tokens[1], tokens[2]);
         } else if (tokens[0].equalsIgnoreCase("UNSET")) {
@@ -337,7 +334,6 @@ public class SimpleDB {
         } else if (tokens[0].equalsIgnoreCase("END")) {
           break;
         } else {
-          if(DEBUG) { System.out.println("error"); }
           break;
         }
       }
@@ -405,9 +401,7 @@ public class SimpleDB {
       line = br.readLine();
       String[] tokens = line.split(" ");
       if(tokens[0].equalsIgnoreCase("SET")) {
-        if(DEBUG) { System.out.println("input: " + tokens[0] + tokens[1] + tokens[2]); }
         set(tokens[1], tokens[2]);
-        if(DEBUG) { System.out.println("root: " + r); }
       } else if (tokens[0].equalsIgnoreCase("GET")) {
         System.out.println(get(tokens[1]));
       } else if (tokens[0].equalsIgnoreCase("UNSET")) {
@@ -423,7 +417,6 @@ public class SimpleDB {
       } else if (tokens[0].equalsIgnoreCase("PRINT")) {
         if(DEBUG) { System.out.println("root: " + r); }
       }
-
     }
   }
 }
@@ -445,10 +438,6 @@ public class SimpleDB {
          * then unset or "set key val", depending on if val is null or not
      * UNSET: 1
        * opposite: val <- get key, then "set key val"
-
-    
-
-
   * ROLLBACK
   * COMMIT
     * destroy begin stack
