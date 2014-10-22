@@ -36,8 +36,7 @@ class RadixTree {
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
-            if(e.s.charAt(e.s.length() - 1) != '$') {
-
+            if(e.s.charAt(eInteger.parseInt(tokens[0]);.s.length() - 1) != '$') {
               return get(e.n, key.substring(j, key.length()));
             }
           }
@@ -52,23 +51,19 @@ class RadixTree {
     for(int i = 0; i < n.edges.size(); i++) {
       Edge e = n.edges.get(i);
       if(e.s.equals(key)) {
-        // key found
-        // can't insert
-        // should modify
+        // key found. can't insert new key. should modify existing key
         e.n.val = val;
         return 1;
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(true) { System.out.println("e.s: " + e.s); }
+            // we potentially want to split key here
             if(e.s.charAt(e.s.length() - 1) != '$') {
+              // but maybe we can specialize a bit more, and split later
               return insert(e.n, key.substring(j, key.length()), val);
             } else {
-
-              // we potentially want to split here
-              // but maybe we can specialize a bit more, and split there
-
-              // split
+              // split node a
               Node nA = new Node(e.n.val, null, null);
               e.n.setVal(null);
               String prefix = e.s.substring(0, j);
@@ -78,6 +73,7 @@ class RadixTree {
               nA.parentEdge = eA;
               e.n.edges.add(eA);
 
+              // node b
               Node nB = new Node(val, null, null);
               Edge eB = new Edge(key.substring(j, key.length()), nB);
               nB.parentEdge = eB;
@@ -88,15 +84,12 @@ class RadixTree {
         }
       }
     }
-    // key not found
+    // key not found, so we insert here
     Node nTemp = new Node(val, null, null);
     Edge eTemp = new Edge(key, nTemp);
     nTemp.parentEdge = eTemp;
     n.edges.add(eTemp);
     return 3;
-    // search as far as possible
-    // split into two
-    // insert node
   }
 
   public int delete(Node n, String key) {
@@ -104,17 +97,14 @@ class RadixTree {
     for(int i = 0; i < n.edges.size(); i++) {
       Edge e = n.edges.get(i);
       if(e.s.equals(key)) {
-        // key found
-        // delete it
+        // key found, so we delete it
         n.edges.remove(i);
-
         if(n.edges.size() == 1) {
-          if(n.parentEdge != null) { // this should only happen when n is root
+          if(n.parentEdge != null) { // parentEdge is only null when n is root
             // merge
             e = n.edges.get(0);
             n.parentEdge.s += e.s; // append edge.s to parent edge.s
             n.val = e.n.val;
-
             n.edges.remove(0);
           }
         }
@@ -125,10 +115,9 @@ class RadixTree {
             if(e.s.charAt(e.s.length() - 1) != '$') {
               return delete(e.n, key.substring(j, key.length()));
             } else {
-              // not found
-              // this should never actually run
-              System.out.println(e.s);
-              System.out.println(key);
+              // this block should never actually run
+              if(DEBUG) { System.out.println(e.s); }
+              if(DEBUG) { System.out.println(key); }
               return -1;
             }
           }
@@ -210,7 +199,7 @@ class Edge {
 }
 
 public class SimpleDB {
-  public static boolean DEBUG = true;
+  public static boolean DEBUG = false;
   public static RadixTree r;
   public static RadixTree helperR;
   public static int transactionCount = 0;
