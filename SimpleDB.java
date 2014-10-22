@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.lang.StringBuilder;
 import java.io.*;
-import java.util.Stack;
+import java.util.ArrayDeque;
 
 // RadixTree?
 class RadixTree {
@@ -211,15 +211,23 @@ public class SimpleDB {
   public static boolean DEBUG = true;
   public static RadixTree r;
   public static RadixTree helperR;
+  public static int transactionCount = 0;
 
-  public static Stack commands;
+  public static ArrayDeque<String> commandStack;
 
   public static void set(String key, String val) {
-    // if key already existed, must update helperR as if it were unset
     Node rNode = r.get(r.root, key + "$");
+    if(transactionCount > 0) {
+      if(rNode != null) {
+        commandStack.push("SET " + key + " " + rNode.val.toString());
+      } else {
+        commandStack.push("UNSET " + key);
+      }
+    }
+
+    // if key already existed, must update helperR as if it were unset
     if(rNode != null) {
       String oldVal = rNode.val.toString();
-      System.out.println("oldVal: " + oldVal);
       Node n = helperR.get(helperR.root, oldVal + "$");
       int count = Integer.parseInt(n.val.toString());
       if(count > 1) {
@@ -260,6 +268,15 @@ public class SimpleDB {
   }
 
   public static void unset(String key) {
+    // transaction-related code
+    Node rNode = r.get(r.root, key + "$");
+    if(transactionCount > 0) {
+      if(rNode != null) {
+        commandStack.push("SET " + key + " " + rNode.val.toString());
+      }
+      // if there was nothing there before, nothing needs to be done
+    }
+
     String val = r.get(r.root, key + "$").val.toString();
 
     int err;
@@ -288,9 +305,62 @@ public class SimpleDB {
     }
   }
 
+  /*
+   * SET:   0
+     * opposite: val <- get key
+       * then unset or "set key val", depending on if val is null or not
+   * UNSET: 1
+     * opposite: val <- get key, then "set key val"
+     * if null, then don't store anything
+  */
+  public static void begin() {
+    transactionCount++;
+    commandStack.push("END");
+    if(DEBUG) { System.out.println(transactionCount); }
+  }
+
+  public static void rollback() {
+    if(transactionCount > 0) {
+      if(DEBUG) { System.out.println("command stack size " + commandStack.size()); }
+      // must temporarily disable transactionCount
+      int tempTransactionCount = transactionCount;
+      transactionCount = 0;
+
+      while(commandStack.size() > 0) {
+        String line = commandStack.pop();
+        String[] tokens = line.split(" ");
+        if(DEBUG) { System.out.println("command: " + line); }
+        if(tokens[0].equalsIgnoreCase("SET")) {
+          set(tokens[1], tokens[2]);
+        } else if (tokens[0].equalsIgnoreCase("UNSET")) {
+          unset(tokens[1]);
+        } else if (tokens[0].equalsIgnoreCase("END")) {
+          break;
+        } else {
+          if(DEBUG) { System.out.println("error"); }
+          break;
+        }
+      }
+
+      transactionCount = tempTransactionCount - 1;
+    } else {
+      System.out.println("NO TRANSACTION");
+    }
+  }
+
+  public static void commit() {
+    if(transactionCount > 0) {
+      transactionCount = 0;
+      commandStack.clear();
+    } else {
+      System.out.println("NO TRANSACTION");
+    }
+  }
+
   public static void main(String[] args) throws Exception {
     r = new RadixTree();
     helperR = new RadixTree();
+    commandStack = new ArrayDeque<String>();
     // test 1
 
     //set("key1", "val1");
@@ -344,6 +414,12 @@ public class SimpleDB {
         unset(tokens[1]);
       } else if (tokens[0].equalsIgnoreCase("numequalto")) {
         System.out.println(numEqualTo(tokens[1]));
+      } else if (tokens[0].equalsIgnoreCase("BEGIN")) {
+        begin();
+      } else if (tokens[0].equalsIgnoreCase("ROLLBACK")) {
+        rollback();
+      } else if (tokens[0].equalsIgnoreCase("COMMIT")) {
+        commit();
       } else if (tokens[0].equalsIgnoreCase("PRINT")) {
         if(DEBUG) { System.out.println("root: " + r); }
       }
@@ -365,7 +441,13 @@ public class SimpleDB {
      * takes up negligible space but is slow to rollback
 
      * SET:   0
+       * opposite: val <- get key
+         * then unset or "set key val", depending on if val is null or not
      * UNSET: 1
+       * opposite: val <- get key, then "set key val"
+
+    
+
 
   * ROLLBACK
   * COMMIT
