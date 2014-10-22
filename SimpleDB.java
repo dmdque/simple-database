@@ -25,7 +25,7 @@ class RadixTree {
         if(DEBUG) { System.out.println("found"); }
         return e.n; // key found
       } else {
-        for(int j = Math.min(e.s.length(), key.length()); j >= 0; j--) {
+        for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(DEBUG) { System.out.println("search: " + e.s.substring(0, j) + ":" + (key.substring(0, j))); }
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(e.s.charAt(e.s.length() - 1) != '$') {
@@ -48,11 +48,14 @@ class RadixTree {
       if(e.s.equals(key)) {
         // key found
         // can't insert
-        return -1;
+        // should modify
+        e.n.val = val;
+        return 1;
       } else {
-        for(int j = Math.min(e.s.length(), key.length()); j >= 0; j--) {
+        for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(DEBUG) { System.out.println("insert: " + e.s.substring(0, j) + ":" + (key.substring(0, j))); }
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
+            if(true) { System.out.println("e.s: " + e.s); }
             if(e.s.charAt(e.s.length() - 1) != '$') {
               return insert(e.n, key.substring(j, key.length()), val);
             } else {
@@ -105,22 +108,26 @@ class RadixTree {
         n.edges.remove(i);
 
         if(n.edges.size() == 1) {
-          // merge
-          e = n.edges.get(0);
-          n.parentEdge.s += e.s; // append edge.s to parent edge.s
-          
-          n.val = e.n.val;
+          if(n.parentEdge != null) { // this should only happen when n is root
+            // merge
+            e = n.edges.get(0);
+            n.parentEdge.s += e.s; // append edge.s to parent edge.s
+            n.val = e.n.val;
 
-          n.edges.remove(0);
+            n.edges.remove(0);
+          }
         }
         return 1;
       } else {
-        for(int j = Math.min(e.s.length(), key.length()); j >= 0; j--) {
+        for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
             if(e.s.charAt(e.s.length() - 1) != '$') {
               return delete(e.n, key.substring(j, key.length()));
             } else {
               // not found
+              // this should never actually run
+              System.out.println(e.s);
+              System.out.println(key);
               return -1;
             }
           }
@@ -142,11 +149,11 @@ class RadixTree {
       return n.toString();
     } else {
       String t = "";
-      t += n.toString() + "\n";
       for(int i = 0; i < n.edges.size(); i++) {
         Edge e = n.edges.get(i);
         t += e.toString() + "\t" + toString(e.n, s);
       }
+      t += n.toString() + "\n";
       return t;
     }
   }
@@ -180,7 +187,7 @@ class Node {
   }
 
   public String toString() {
-    return "{val: " + val + ", #edges: " + edges.size() + "}";
+    return "{val: " + val + ", #edges: " + edges.size() + ", parentEdge: " + parentEdge + "}";
   }
 
 }
@@ -208,6 +215,20 @@ public class SimpleDB {
   public static Stack commands;
 
   public static void set(String key, String val) {
+    // if key already existed, must update helperR as if it were unset
+    Node rNode = r.get(r.root, key + "$");
+    if(rNode != null) {
+      String oldVal = rNode.val.toString();
+      System.out.println("oldVal: " + oldVal);
+      Node n = helperR.get(helperR.root, oldVal + "$");
+      int count = Integer.parseInt(n.val.toString());
+      if(count > 1) {
+        n.val = count - 1;
+      } else {
+        helperR.delete(helperR.root, oldVal + "$");
+      }
+    } 
+
     // ensure keys are $ terminated?
     // maybe should automatically append
     int err;
@@ -229,7 +250,13 @@ public class SimpleDB {
   }
 
   public static String get(String key) {
-    return (String) r.get(r.root, key + "$").val;
+    
+    Node n = r.get(r.root, key + "$");
+    if(n != null) {
+      return n.val.toString();
+    } else {
+      return "NULL";
+    }
   }
 
   public static void unset(String key) {
@@ -252,6 +279,7 @@ public class SimpleDB {
 
   public static int numEqualTo(String val) {
     // need precomputed radix tree of keys to make it O(logn)
+    // need to check for unset AND set overwrite
     Node n = helperR.get(helperR.root, val + "$");
     if(n == null) {
       return 0;
@@ -260,25 +288,29 @@ public class SimpleDB {
     }
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     r = new RadixTree();
     helperR = new RadixTree();
-    set("key1", "val1");
-    set("key2", "val2");
+    // test 1
 
-    get("key1");
-    get("key2");
+    //set("key1", "val1");
+    //set("a", "val2");
 
-    System.out.println("root:\n" + r);
+    //System.out.println("root:\n" + r);
+    //System.out.println("get key1: " + get("key1"));
+    //System.out.println("get key2: " + get("key2"));
 
-    unset("key1");
 
-    set("key3", "val2");
+    //unset("key1");
 
-    System.out.println("root:\n" + r);
-    System.out.println("helperR:\n" + helperR);
+    //set("key3", "val2");
 
-    System.out.println("#val2: " + numEqualTo("val2"));
+    //System.out.println("root:\n" + r);
+    //System.out.println("helperR:\n" + helperR);
+
+    //System.out.println("#val2: " + numEqualTo("val2"));
+
+    // end test 1
 
     //System.out.println(r.insert(r.root, "key1$", "val1"));
     //System.out.println(r.insert(r.root, "key2$", "val2"));
@@ -295,12 +327,28 @@ public class SimpleDB {
 
     //System.out.println("delete: " + r.delete(r.root, "key1$"));
     //System.out.println("root:\n" + r);
-    //BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-    //String line = br.readLine();
-    //int N = Integer.parseInt(line);
-    //for (int i = 1; i < N; i++) {
-      //System.out.println("hello world");
-    //}
+    String prompt = "> ";
+    BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+    String line = "";
+    while(!line.equalsIgnoreCase("end")) {
+      System.out.print(prompt);
+      line = br.readLine();
+      String[] tokens = line.split(" ");
+      if(tokens[0].equalsIgnoreCase("SET")) {
+        if(DEBUG) { System.out.println("input: " + tokens[0] + tokens[1] + tokens[2]); }
+        set(tokens[1], tokens[2]);
+        if(DEBUG) { System.out.println("root: " + r); }
+      } else if (tokens[0].equalsIgnoreCase("GET")) {
+        System.out.println(get(tokens[1]));
+      } else if (tokens[0].equalsIgnoreCase("UNSET")) {
+        unset(tokens[1]);
+      } else if (tokens[0].equalsIgnoreCase("numequalto")) {
+        System.out.println(numEqualTo(tokens[1]));
+      } else if (tokens[0].equalsIgnoreCase("PRINT")) {
+        if(DEBUG) { System.out.println("root: " + r); }
+      }
+
+    }
   }
 }
 
@@ -315,6 +363,9 @@ public class SimpleDB {
      * playback opposite of each command backwards
        * there's just SET/UNSET
      * takes up negligible space but is slow to rollback
+
+     * SET:   0
+     * UNSET: 1
 
   * ROLLBACK
   * COMMIT
