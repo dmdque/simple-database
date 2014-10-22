@@ -19,6 +19,7 @@ import java.util.ArrayDeque;
    * good enough for specs of this problem
 */
 
+// RadixTree is more interesting to implement
 class RadixTree {
   public boolean DEBUG = false;
   public Node root;
@@ -27,6 +28,7 @@ class RadixTree {
     root = new Node();
   }
 
+  // gets {key, val}, starting search at Node n
   public Node get(Node n, String key) {
     // for each edge
     for(int i = 0; i < n.edges.size(); i++) {
@@ -36,7 +38,7 @@ class RadixTree {
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
-            if(e.s.charAt(eInteger.parseInt(tokens[0]);.s.length() - 1) != '$') {
+            if(e.s.charAt(e.s.length() - 1) != '$') {
               return get(e.n, key.substring(j, key.length()));
             }
           }
@@ -46,6 +48,8 @@ class RadixTree {
     return null; // not found
   }
 
+  // inserts {key, val}, starting search at Node n
+  // returns 0 on success
   public int insert(Node n, String key, Object val) {
     // for each edge
     for(int i = 0; i < n.edges.size(); i++) {
@@ -57,7 +61,6 @@ class RadixTree {
       } else {
         for(int j = Math.min(e.s.length(), key.length()); j > 0; j--) {
           if(e.s.substring(0, j).equals(key.substring(0, j))) {
-            if(true) { System.out.println("e.s: " + e.s); }
             // we potentially want to split key here
             if(e.s.charAt(e.s.length() - 1) != '$') {
               // but maybe we can specialize a bit more, and split later
@@ -92,6 +95,8 @@ class RadixTree {
     return 0;
   }
 
+  // deletes {key, val}, starting search at Node n
+  // returns nonzero for abnormal termination
   public int delete(Node n, String key) {
     // for each edge
     for(int i = 0; i < n.edges.size(); i++) {
@@ -118,31 +123,30 @@ class RadixTree {
               // this block should never actually run
               if(DEBUG) { System.out.println(e.s); }
               if(DEBUG) { System.out.println(key); }
-              return 1;
+              return 2;
             }
           }
         }
       }
     }
-    // key not found
-    return 2;
+    return 1; // key not found
   }
 
   public String toString() {
     Node n = this.root;
     String s = "";
-    return toString(n, s);
+    return toStringHelper(n, s);
   }
 
-  // simple/primitive text output for debugging purposes
-  public String toString(Node n, String s) {
+  // simple/primitive helper text output for debugging purposes
+  public String toStringHelper(Node n, String s) {
     if(n.edges.size() == 0) {
       return n.toString();
     } else {
       String t = "";
       for(int i = 0; i < n.edges.size(); i++) {
         Edge e = n.edges.get(i);
-        t += e.toString() + "\t" + toString(e.n, s);
+        t += e.toString() + "\t" + toStringHelper(e.n, s);
       }
       t += n.toString() + "\n";
       return t;
@@ -152,8 +156,7 @@ class RadixTree {
 }
 
 class Node {
-  // inner nodes have val = null
-  public Object val;
+  public Object val; // inner nodes have val = null
   public ArrayList<Edge> edges;
   public Edge parentEdge;
 
@@ -180,7 +183,6 @@ class Node {
   public String toString() {
     return "{val: " + val + ", #edges: " + edges.size() + ", parentEdge: " + parentEdge + "}";
   }
-
 }
 
 class Edge {
@@ -195,16 +197,15 @@ class Edge {
   public String toString() {
     return "--" + s + "--";
   }
-
 }
 
 public class SimpleDB {
-  public static boolean DEBUG = false;
-  public static RadixTree r;
-  public static RadixTree helperR;
-  public static int transactionCount = 0;
+  public static boolean DEBUG = false; // for internal debugging prints
 
+  public static RadixTree r;
+  public static RadixTree numEqualRT;
   public static ArrayDeque<String> commandStack;
+  public static int transactionCount = 0;
 
   public static void set(String key, String val) {
     Node rNode = r.get(r.root, key + "$");
@@ -216,15 +217,15 @@ public class SimpleDB {
       }
     }
 
-    // if key already existed, must update helperR as if it were unset
+    // if key already existed, must update numEqualRT as if it were unset
     if(rNode != null) {
       String oldVal = rNode.val.toString();
-      Node n = helperR.get(helperR.root, oldVal + "$");
+      Node n = numEqualRT.get(numEqualRT.root, oldVal + "$");
       int count = Integer.parseInt(n.val.toString());
       if(count > 1) {
         n.val = count - 1;
       } else {
-        helperR.delete(helperR.root, oldVal + "$");
+        numEqualRT.delete(numEqualRT.root, oldVal + "$");
       }
     } 
 
@@ -237,12 +238,12 @@ public class SimpleDB {
       err = r.insert(r.root, key, val);
     }
 
-    Node n = helperR.get(helperR.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + "$");
     if(n != null) {
       int count = Integer.parseInt(n.val.toString());
       n.val = new Integer(count + 1);
     } else {
-      helperR.insert(helperR.root, val + "$", new Integer(1));
+      numEqualRT.insert(numEqualRT.root, val + "$", new Integer(1));
     }
 
   }
@@ -272,13 +273,13 @@ public class SimpleDB {
     int err;
     err = r.delete(r.root, key + "$");
 
-    Node n = helperR.get(helperR.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + "$");
     if(n != null) {
       int count = Integer.parseInt(n.val.toString());
       if(count > 1) {
         n.val = count - 1;
       } else {
-        helperR.delete(helperR.root, val + "$");
+        numEqualRT.delete(numEqualRT.root, val + "$");
       }
     } 
   }
@@ -286,7 +287,7 @@ public class SimpleDB {
   public static int numEqualTo(String val) {
     // need precomputed radix tree of keys to make it O(logn)
     // need to check for unset AND set overwrite
-    Node n = helperR.get(helperR.root, val + "$");
+    Node n = numEqualRT.get(numEqualRT.root, val + "$");
     if(n == null) {
       return 0;
     } else {
@@ -295,12 +296,31 @@ public class SimpleDB {
   }
 
   /*
-   * SET:   0
-     * opposite: val <- get key
-       * then unset or "set key val", depending on if val is null or not
-   * UNSET: 1
-     * opposite: val <- get key, then "set key val"
-     * if null, then don't store anything
+   * Plan for Transactions
+   * BEGIN:
+     * Two options:
+     * a)
+       * take snapshot of radix tree state
+       * add to stack
+       * faster runtime for rollback
+       * takes up more space
+     * b)
+       * record each command's opposite in stack
+       * playback opposite of each command backwards
+         * only modifying commands are SET/UNSET
+       * takes up very little space in comparison
+       * slower to rollback
+
+       * SET:
+         * opposite: val <- get key
+           * then unset or "set key val", depending on if val is null or not
+       * UNSET:
+         * opposite: val <- get key, then "set key val"
+         * don't have to do anything if it was null
+    * ROLLBACK:
+      * pop stack and execute each "opposite command"
+    * COMMIT:
+      * destroy begin stack
   */
   public static void begin() {
     transactionCount++;
@@ -309,7 +329,8 @@ public class SimpleDB {
 
   public static void rollback() {
     if(transactionCount > 0) {
-      // must temporarily disable transactionCount
+      // must temporarily disable transactionCount to prevent transactions from
+      // building up during rollback
       int tempTransactionCount = transactionCount;
       transactionCount = 0;
 
@@ -344,47 +365,13 @@ public class SimpleDB {
 
   public static void main(String[] args) throws Exception {
     r = new RadixTree();
-    helperR = new RadixTree();
+    numEqualRT = new RadixTree();
     commandStack = new ArrayDeque<String>();
-    // test 1
 
-    //set("key1", "val1");
-    //set("a", "val2");
-
-    //System.out.println("root:\n" + r);
-    //System.out.println("get key1: " + get("key1"));
-    //System.out.println("get key2: " + get("key2"));
-
-
-    //unset("key1");
-
-    //set("key3", "val2");
-
-    //System.out.println("root:\n" + r);
-    //System.out.println("helperR:\n" + helperR);
-
-    //System.out.println("#val2: " + numEqualTo("val2"));
-
-    // end test 1
-
-    //System.out.println(r.insert(r.root, "key1$", "val1"));
-    //System.out.println(r.insert(r.root, "key2$", "val2"));
-    ////System.out.println("after: " + r.root.edges.get(0).n);
-
-    //System.out.println("search 1: " + r.get(r.root, "key1$"));
-    //System.out.println("search 2: " + r.get(r.root, "key2$"));
-
-    //System.out.println("e1: " + r.root.edges.get(0));
-    //System.out.println("e1,1: " + r.root.edges.get(0).n.edges.get(0));
-    //System.out.println("e1,2: " + r.root.edges.get(0).n.edges.get(1));
-
-    //System.out.println("root:\n" + r);
-
-    //System.out.println("delete: " + r.delete(r.root, "key1$"));
-    //System.out.println("root:\n" + r);
     String prompt = "> ";
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     String line = "";
+
     while(!line.equalsIgnoreCase("end")) {
       System.out.print(prompt);
       line = br.readLine();
@@ -395,7 +382,7 @@ public class SimpleDB {
         System.out.println(get(tokens[1]));
       } else if (tokens[0].equalsIgnoreCase("UNSET")) {
         unset(tokens[1]);
-      } else if (tokens[0].equalsIgnoreCase("numequalto")) {
+      } else if (tokens[0].equalsIgnoreCase("NUMEQUALTO")) {
         System.out.println(numEqualTo(tokens[1]));
       } else if (tokens[0].equalsIgnoreCase("BEGIN")) {
         begin();
@@ -404,30 +391,12 @@ public class SimpleDB {
       } else if (tokens[0].equalsIgnoreCase("COMMIT")) {
         commit();
       } else if (tokens[0].equalsIgnoreCase("PRINT")) {
-        if(DEBUG) { System.out.println("root: " + r); }
+        System.out.println("root: " + r);
+      } else {
+        System.out.println("command \"" + tokens[0] + "\" not recognized");
       }
     }
+
   }
 }
 
-/*
- * BEGIN
-   * a)
-     * take snapshot of radix tree state
-     * add to stack
-     * potentially faster runtime, takes up more space
-   * b)
-     * record each command in stack
-     * playback opposite of each command backwards
-       * there's just SET/UNSET
-     * takes up negligible space but is slow to rollback
-
-     * SET:   0
-       * opposite: val <- get key
-         * then unset or "set key val", depending on if val is null or not
-     * UNSET: 1
-       * opposite: val <- get key, then "set key val"
-  * ROLLBACK
-  * COMMIT
-    * destroy begin stack
-*/
